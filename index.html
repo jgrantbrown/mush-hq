@@ -1113,7 +1113,7 @@ function renderPickCard(p, isAdmin) {
       ${p.result === 'push'      ? '<span style="font-family:Bebas Neue,sans-serif;font-size:18px;color:var(--dim)">PUSH</span>' : ''}
       ${!p.result                ? '<span style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted)">TBD</span>' : ''}
       ${p.score ? '<div style="font-family:DM Mono,monospace;font-size:9px;color:var(--dim)">' + p.score + '</div>' : ''}
-    </div>\`;
+    </div>`;
 
   return `<div class="pcard${lockClass}${fadeClass}${rClass}" id="pc-${p.id}">
     <div class="ptype">${p.is_lock?'🔒':'📊'}</div>
