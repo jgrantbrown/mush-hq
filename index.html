@@ -373,12 +373,20 @@ select.finput option{background:var(--card);}
     <div class="login-title">THE <span class="red">MUSH</span><br>HQ</div>
     <div class="login-subtitle" id="login-moon-sub">Loading atmospheric conditions...</div>
   </div>
-  <div class="login-box">
+  <div class="login-box" id="login-box">
     <div class="login-field"><label>Email</label><input type="email" id="l-email" placeholder="you@example.com" autocomplete="email"></div>
     <div class="login-field"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"></div>
     <div class="login-err" id="l-err"></div>
     <button class="btn btn-red" onclick="doLogin()">Enter The HQ</button>
+    <div style="text-align:center"><span onclick="showReset()" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;text-decoration:underline;">Forgot password?</span></div>
     <div class="moon-hint" id="login-moon-hint"></div>
+  </div>
+  <div class="login-box" id="reset-box" style="display:none;flex-direction:column;gap:14px;">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--text);">Reset Password</div>
+    <div class="login-field"><label>Email</label><input type="email" id="reset-email" placeholder="you@example.com"></div>
+    <div class="login-err" id="reset-err"></div>
+    <button class="btn btn-red" onclick="doReset()">Send Reset Email</button>
+    <div style="text-align:center"><span onclick="hideReset()" style="font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;">← Back to login</span></div>
   </div>
 </div>
 
@@ -418,12 +426,13 @@ select.finput option{background:var(--card);}
     <div class="mast-title">THE <span class="red">MUSH</span><br>HQ</div>
     <div class="mast-sub">NFL Pick Tracker · Counter-Strategy Command Center · Est. 2023</div>
   </div>
-  <div>
-    <div class="user-pill" onclick="doLogout()">
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div class="user-pill" style="cursor:default;">
       <span class="user-emoji" id="u-emoji">🎲</span>
       <span class="user-name" id="u-name">...</span>
       <span class="user-role" id="u-role">viewer</span>
     </div>
+    <div onclick="doLogout()" id="logout-btn" style="background:var(--card);border:1px solid var(--b2);border-radius:20px;padding:6px 14px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--dim);transition:all .15s;">LOG OUT</div>
   </div>
 </div>
 
@@ -595,7 +604,7 @@ Chiefs -7.5 over Chargers
 // CONFIG — swap in your real anon key below
 // ══════════════════════════════════════════════════════════
 const SUPA_URL  = 'https://dgtbsudilclltvikasza.supabase.co';
-const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRndGJzdWRpbGNsbHR2aWthc3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDM0MDMsImV4cCI6MjA4OTI3OTQwM30.LvEV2i3UBsw0jomsp75GVuPfyKrFKTrPWYK5Mvnivzw'; // eyJ...
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRndGJzdWRpbGNsbHR2aWthc3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDM0MDMsImV4cCI6MjA4OTI3OTQwM30.LvEV2i3UBsw0jomsp75GVuPfyKrFKTrPWYK5Mvnivzw';
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_ANON);
@@ -690,6 +699,27 @@ async function afterLogin(user) {
   renderTeamBars();
 }
 
+function showReset() {
+  document.getElementById('login-box').style.display = 'none';
+  document.getElementById('reset-box').style.display = 'flex';
+}
+function hideReset() {
+  document.getElementById('reset-box').style.display = 'none';
+  document.getElementById('login-box').style.display = 'flex';
+  document.getElementById('reset-err').textContent = '';
+  document.getElementById('reset-err').style.color = 'var(--red)';
+}
+async function doReset() {
+  const email = document.getElementById('reset-email').value.trim();
+  const err = document.getElementById('reset-err');
+  if (!email) { err.textContent = 'Enter your email.'; return; }
+  const { error } = await db.auth.resetPasswordForEmail(email, {
+    redirectTo: 'https://jgrantbrown.github.io/mush-hq/'
+  });
+  if (error) { err.textContent = error.message; return; }
+  err.style.color = 'var(--green)';
+  err.textContent = 'Reset email sent — check your inbox.';
+}
 async function doLogout() {
   await db.auth.signOut();
   currentUser = null; currentProfile = null; activeWeek = null;
