@@ -595,7 +595,7 @@ Chiefs -7.5 over Chargers
 // CONFIG — swap in your real anon key below
 // ══════════════════════════════════════════════════════════
 const SUPA_URL  = 'https://dgtbsudilclltvikasza.supabase.co';
-const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRndGJzdWRpbGNsbHR2aWthc3phIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDM0MDMsImV4cCI6MjA4OTI3OTQwM30.LvEV2i3UBsw0jomsp75GVuPfyKrFKTrPWYK5Mvnivzw'; // eyJ...
+const SUPA_ANON = 'REPLACE_WITH_YOUR_ANON_KEY'; // eyJ...
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_ANON);
@@ -786,7 +786,7 @@ function renderWeekView(week, picks, bonus, comments) {
   let html = '';
 
   // Meltdown
-  if (meltdown) html += `<div class="meltdown on">🚨 MUSH MELTDOWN IN PROGRESS · COUNTER STRATEGY PRINTING MONEY 🚨</div>`;
+  html += `<div class="meltdown${meltdown?' on':''}" id="meltdown-banner">🚨 MUSH MELTDOWN IN PROGRESS · COUNTER STRATEGY PRINTING MONEY 🚨</div>`;
 
   // Week header
   const riskClass = { green:'rb-green', yellow:'rb-yellow', red:'rb-red' }[week.week_risk] || 'rb-yellow';
@@ -938,7 +938,7 @@ async function autoResult(pickId, score) {
 function checkMeltdown(picks) {
   const settled = picks.filter(p => p.result !== null).length;
   const losses   = picks.filter(p => p.result === 'mush_loss').length;
-  const el = document.querySelector('.meltdown');
+  const el = document.getElementById('meltdown-banner');
   if (el) { if (settled >= 6 && losses >= settled * 0.75) el.classList.add('on'); else el.classList.remove('on'); }
 }
 
