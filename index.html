@@ -432,6 +432,7 @@ select.finput option{background:var(--card);}
       <span class="user-name" id="u-name">...</span>
       <span class="user-role" id="u-role">viewer</span>
     </div>
+    <div onclick="togglePreview()" id="preview-btn" style="background:var(--card);border:1px solid var(--b2);border-radius:20px;padding:6px 14px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--dim);transition:all .15s;display:none;">👁 PREVIEW</div>
     <div onclick="doLogout()" id="logout-btn" style="background:var(--card);border:1px solid var(--b2);border-radius:20px;padding:6px 14px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--dim);transition:all .15s;">LOG OUT</div>
   </div>
 </div>
@@ -617,6 +618,7 @@ let currentProfile = null;
 let activeWeek = null;
 let currentWeekPicks = [];
 let currentWeekBonus = [];
+let previewMode = false;
 
 // ══════════════════════════════════════════════════════════
 // MOON PHASE
@@ -693,12 +695,42 @@ async function afterLogin(user) {
   document.getElementById('u-emoji').textContent = profile?.avatar_emoji || '🎲';
   document.getElementById('u-role').textContent = profile?.role || 'viewer';
   document.getElementById('u-role').className = 'user-role ' + (profile?.role === 'admin' ? 'role-admin' : 'role-viewer');
-  if (profile?.role === 'admin') document.getElementById('tab-admin').style.display = 'block';
+  if (profile?.role === 'admin') {
+    document.getElementById('tab-admin').style.display = 'block';
+    document.getElementById('preview-btn').style.display = 'block';
+  }
   await loadWeeks();
   renderHistBars();
   renderTeamBars();
 }
 
+function togglePreview() {
+  previewMode = !previewMode;
+  const btn = document.getElementById('preview-btn');
+  const roleEl = document.getElementById('u-role');
+  const adminTab = document.getElementById('tab-admin');
+  if (previewMode) {
+    btn.textContent = '⚡ ADMIN';
+    btn.style.borderColor = 'var(--amber)';
+    btn.style.color = 'var(--amber)';
+    roleEl.textContent = 'viewer preview';
+    roleEl.className = 'user-role role-viewer';
+    adminTab.style.display = 'none';
+    // Switch to picks tab if on admin tab
+    if (document.getElementById('panel-admin').classList.contains('on')) tab('picks');
+    showToast('Viewing as member — no admin controls visible', 'ok');
+  } else {
+    btn.textContent = '👁 PREVIEW';
+    btn.style.borderColor = 'var(--b2)';
+    btn.style.color = 'var(--dim)';
+    roleEl.textContent = 'admin';
+    roleEl.className = 'user-role role-admin';
+    adminTab.style.display = 'block';
+    showToast('Back to admin mode', 'ok');
+  }
+  // Reload current week view to show/hide result buttons
+  if (activeWeek) loadWeekView(activeWeek);
+}
 function showReset() {
   document.getElementById('login-box').style.display = 'none';
   document.getElementById('reset-box').style.display = 'flex';
@@ -747,7 +779,7 @@ function tab(id) {
 // WEEKS
 // ══════════════════════════════════════════════════════════
 async function loadWeeks() {
-  const isAdmin = currentProfile?.role === 'admin';
+  const isAdmin = currentProfile?.role === 'admin' && !previewMode;
   let q = db.from('weeks').select('*').order('created_at', { ascending: false });
   const { data: weeks } = await q;
   if (!weeks) return;
