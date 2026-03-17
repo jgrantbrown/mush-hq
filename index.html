@@ -432,7 +432,7 @@ select.finput option{background:var(--card);}
       <span class="user-name" id="u-name">...</span>
       <span class="user-role" id="u-role">viewer</span>
     </div>
-    <div onclick="togglePreview()" id="preview-btn" style="background:var(--card);border:1px solid var(--b2);border-radius:20px;padding:6px 14px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--dim);transition:all .15s;display:none;">👁 PREVIEW</div>
+    <div onclick="togglePreview()" id="preview-btn" style="display:none;cursor:pointer;border-radius:20px;overflow:hidden;border:1px solid var(--b2);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:1px;"><div id="pt-admin" style="display:inline-block;padding:6px 14px;background:var(--red);color:#fff;">⚡ ADMIN</div><div id="pt-viewer" style="display:inline-block;padding:6px 14px;color:var(--muted);">👁 VIEWER</div></div>
     <div onclick="doLogout()" id="logout-btn" style="background:var(--card);border:1px solid var(--b2);border-radius:20px;padding:6px 14px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:1px;color:var(--dim);transition:all .15s;">LOG OUT</div>
   </div>
 </div>
@@ -470,7 +470,7 @@ select.finput option{background:var(--card);}
 <!-- ════ PICKS TAB ════ -->
 <div class="panel on" id="panel-picks">
   <div class="week-selector" id="week-selector"></div>
-  <div id="picks-view"><div class="empty">Select a week above</div></div>
+  <div id="picks-view"><div class="empty" id="picks-empty" style="padding:40px 0;"><div style="font-size:36px;margin-bottom:12px;">🏈</div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:var(--dim);margin-bottom:6px;">NO CURRENT WEEK</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">Admin publishes picks each Thursday when the Mush drops his card</div></div></div>
 </div>
 
 <!-- ════ HISTORY TAB ════ -->
@@ -697,7 +697,7 @@ async function afterLogin(user) {
   document.getElementById('u-role').className = 'user-role ' + (profile?.role === 'admin' ? 'role-admin' : 'role-viewer');
   if (profile?.role === 'admin') {
     document.getElementById('tab-admin').style.display = 'block';
-    document.getElementById('preview-btn').style.display = 'block';
+    document.getElementById('preview-btn').style.display = 'flex';
   }
   await loadWeeks();
   renderHistBars();
@@ -706,29 +706,24 @@ async function afterLogin(user) {
 
 function togglePreview() {
   previewMode = !previewMode;
-  const btn = document.getElementById('preview-btn');
   const roleEl = document.getElementById('u-role');
   const adminTab = document.getElementById('tab-admin');
+  const ptAdmin = document.getElementById('pt-admin');
+  const ptViewer = document.getElementById('pt-viewer');
   if (previewMode) {
-    btn.textContent = '⚡ ADMIN';
-    btn.style.borderColor = 'var(--amber)';
-    btn.style.color = 'var(--amber)';
-    roleEl.textContent = 'viewer preview';
-    roleEl.className = 'user-role role-viewer';
+    ptAdmin.style.background = 'transparent'; ptAdmin.style.color = 'var(--muted)';
+    ptViewer.style.background = 'var(--amber)'; ptViewer.style.color = '#000';
+    roleEl.textContent = 'viewer preview'; roleEl.className = 'user-role role-viewer';
     adminTab.style.display = 'none';
-    // Switch to picks tab if on admin tab
     if (document.getElementById('panel-admin').classList.contains('on')) tab('picks');
-    showToast('Viewing as member — no admin controls visible', 'ok');
+    showToast('Viewer mode — seeing exactly what the group sees', 'ok');
   } else {
-    btn.textContent = '👁 PREVIEW';
-    btn.style.borderColor = 'var(--b2)';
-    btn.style.color = 'var(--dim)';
-    roleEl.textContent = 'admin';
-    roleEl.className = 'user-role role-admin';
+    ptAdmin.style.background = 'var(--red)'; ptAdmin.style.color = '#fff';
+    ptViewer.style.background = 'transparent'; ptViewer.style.color = 'var(--muted)';
+    roleEl.textContent = 'admin'; roleEl.className = 'user-role role-admin';
     adminTab.style.display = 'block';
-    showToast('Back to admin mode', 'ok');
+    showToast('Admin mode restored', 'ok');
   }
-  // Reload current week view to show/hide result buttons
   if (activeWeek) loadWeekView(activeWeek);
 }
 function showReset() {
@@ -779,34 +774,67 @@ function tab(id) {
 // WEEKS
 // ══════════════════════════════════════════════════════════
 async function loadWeeks() {
-  const isAdmin = currentProfile?.role === 'admin' && !previewMode;
   let q = db.from('weeks').select('*').order('created_at', { ascending: false });
   const { data: weeks } = await q;
   if (!weeks) return;
   renderWeekSelector(weeks);
-  // Auto-select latest live week
-  const live = weeks.find(w => w.status === 'live');
-  if (live) selectWeek(live);
+  // Auto-load: live first, then most recent complete, then draft (admin only)
+  const live     = weeks.find(w => w.status === 'live');
+  const complete = weeks.find(w => w.status === 'complete');
+  const draft    = currentProfile?.role === 'admin' ? weeks.find(w => w.status === 'draft') : null;
+  const toLoad   = live || complete || draft;
+  if (toLoad) selectWeek(toLoad);
 }
 
 function renderWeekSelector(weeks) {
   const el = document.getElementById('week-selector');
   el.innerHTML = '';
-  if (!weeks.length) { el.innerHTML = '<span style="font-family:\'DM Mono\',monospace;font-size:9px;color:var(--muted)">No weeks published yet</span>'; return; }
-  weeks.forEach(w => {
+
+  const past = weeks.filter(w => w.status === 'complete');
+  const hasDraft = currentProfile?.role === 'admin' && weeks.some(w => w.status === 'draft');
+
+  if (!past.length && !hasDraft) return;
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;';
+
+  const lbl = document.createElement('span');
+  lbl.style.cssText = 'font-family:"DM Mono",monospace;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;white-space:nowrap;margin-right:4px;';
+  lbl.textContent = 'Past weeks:';
+  wrap.appendChild(lbl);
+
+  past.forEach(w => {
+    const wins = w.mush_wins || 0;
+    const losses = w.mush_losses || 0;
+    const isBad = losses > wins * 1.5;
     const chip = document.createElement('div');
-    chip.className = 'week-chip' + (w.status === 'draft' ? ' draft' : '') + (activeWeek?.id === w.id ? ' on' : '');
-    chip.textContent = w.label + (w.status === 'draft' ? ' [draft]' : '');
+    chip.className = 'week-chip' + (activeWeek?.id === w.id ? ' on' : '');
+    if (isBad) chip.style.borderColor = 'var(--red-m)';
+    chip.innerHTML = w.label + (wins || losses ? ' <span style="font-family:\'DM Mono\',monospace;font-size:8px;opacity:.6">' + wins + '-' + losses + '</span>' : '');
+    chip.title = 'Mush: ' + wins + 'W-' + losses + 'L';
     chip.onclick = () => selectWeek(w);
-    el.appendChild(chip);
+    wrap.appendChild(chip);
   });
+
+  if (hasDraft) {
+    const dw = weeks.find(w => w.status === 'draft');
+    const chip = document.createElement('div');
+    chip.className = 'week-chip draft' + (activeWeek?.id === dw.id ? ' on' : '');
+    chip.textContent = dw.label + ' [draft]';
+    chip.onclick = () => selectWeek(dw);
+    wrap.appendChild(chip);
+  }
+
+  el.appendChild(wrap);
 }
 
 async function selectWeek(week) {
   activeWeek = week;
-  // Refresh chips
   document.querySelectorAll('.week-chip').forEach(c => c.classList.remove('on'));
-  event?.target?.classList?.add('on');
+  // Find and highlight the matching chip
+  document.querySelectorAll('.week-chip').forEach(c => {
+    if (c.title && c.title.includes(week.label)) c.classList.add('on');
+  });
   await loadWeekView(week);
 }
 
@@ -838,12 +866,12 @@ const GW_LABELS = {
 };
 
 function renderWeekView(week, picks, bonus, comments) {
-  const isAdmin = currentProfile?.role === 'admin';
+  const isAdmin = currentProfile?.role === 'admin' && !previewMode;
   const el = document.getElementById('picks-view');
   // Meltdown check
   const settled = picks.filter(p => p.result !== null).length;
   const losses   = picks.filter(p => p.result === 'mush_loss').length;
-  const meltdown = settled >= 6 && losses >= settled * 0.75;
+  const meltdown = settled >= 4 && losses >= settled * 0.70;
 
   let html = '';
 
@@ -1000,8 +1028,21 @@ async function autoResult(pickId, score) {
 function checkMeltdown(picks) {
   const settled = picks.filter(p => p.result !== null).length;
   const losses   = picks.filter(p => p.result === 'mush_loss').length;
-  const el = document.getElementById('meltdown-banner');
-  if (el) { if (settled >= 6 && losses >= settled * 0.75) el.classList.add('on'); else el.classList.remove('on'); }
+  const firing = settled >= 4 && losses >= settled * 0.70;
+  // Try to find existing banner first
+  let el = document.getElementById('meltdown-banner');
+  // If not found, inject it at top of picks-view
+  if (!el) {
+    const view = document.getElementById('picks-view');
+    if (view) {
+      el = document.createElement('div');
+      el.id = 'meltdown-banner';
+      el.className = 'meltdown';
+      el.textContent = '🚨 MUSH MELTDOWN IN PROGRESS · COUNTER STRATEGY PRINTING MONEY 🚨';
+      view.insertBefore(el, view.firstChild);
+    }
+  }
+  if (el) { if (firing) el.classList.add('on'); else el.classList.remove('on'); }
 }
 
 // ══════════════════════════════════════════════════════════
